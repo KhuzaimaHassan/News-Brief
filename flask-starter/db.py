@@ -32,11 +32,14 @@ pool = oracledb.create_pool(
     increment=1
 )
 
+# Use the locally extracted PEM if running in Render, otherwise fall back to the env var path
+key_file_path = 'khuzaima.pem' if os.path.exists('khuzaima.pem') else os.getenv('OCI_KEY_FILE')
+
 oci_kwargs = dict(
     oci_user=os.getenv('OCI_USER'), 
     oci_tenancy=os.getenv('OCI_TENANCY'), 
     oci_fingerprint=os.getenv('OCI_FINGERPRINT'),
-    oci_key_file=os.getenv('OCI_KEY_FILE'), 
+    oci_key_file=key_file_path, 
     oci_compartment_id=os.getenv('OCI_COMPARTMENT_ID'),
     oci_region=os.getenv('OCI_REGION'),
 )
