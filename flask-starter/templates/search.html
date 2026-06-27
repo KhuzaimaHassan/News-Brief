@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-12">
+        <h1 class="text-4xl font-display font-bold text-primary mb-2">Memory Archive</h1>
+        <p class="text-neutral-content/60 font-light">Search through your accumulated intelligence and procedural styles.</p>
+    </div>
+
+    <div class="relative mb-16 group">
+        <input type="text" id="searchInput" placeholder="Query your memories..." class="input input-lg w-full bg-base-200/50 border-neutral/30 focus:border-primary text-xl font-body transition-colors duration-300 pr-16" />
+        <button id="searchBtn" class="absolute right-2 top-2 bottom-2 btn btn-square btn-primary btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </button>
+        <!-- Decorative underline -->
+        <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-primary group-focus-within:w-full transition-all duration-500 ease-out"></div>
+    </div>
+
+    <div id="loadingIndicator" class="hidden text-center py-8">
+        <span class="loading loading-bars loading-md text-primary"></span>
+    </div>
+
+    <div id="resultsList" class="space-y-6">
+        <!-- Results injected here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultsList = document.getElementById('resultsList');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+
+    const performSearch = async () => {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        searchBtn.disabled = true;
+        loadingIndicator.classList.remove('hidden');
+        resultsList.innerHTML = '';
+
+        try {
+            const res = await fetch('/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+            const data = await res.json();
+            
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(r => {
+                    const el = document.createElement('div');
+                    el.className = "p-6 rounded-box bg-base-200/30 border border-neutral/10 hover:border-primary/30 transition-colors duration-300 flex flex-col gap-3 relative overflow-hidden";
+                    
+                    const scoreWidth = Math.min(100, Math.max(0, r.score * 100));
+                    el.innerHTML = `
+                        <div class="absolute top-0 left-0 h-1 bg-primary/20 w-full">
+                            <div class="h-full bg-primary" style="width: ${scoreWidth}%"></div>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="badge badge-outline badge-sm uppercase tracking-widest text-[10px] font-bold ${r.type === 'PROCEDURAL' ? 'badge-secondary' : 'badge-neutral'}">${r.type}</span>
+                            <span class="text-xs font-mono text-neutral-content/50">${(r.score).toFixed(3)}</span>
+                        </div>
+                        <p class="text-sm md:text-base leading-relaxed text-base-content/90 font-serif whitespace-pre-wrap">${r.content}</p>
+                    `;
+                    resultsList.appendChild(el);
+                });
+            } else {
+                resultsList.innerHTML = '<p class="text-center text-neutral-content italic">No relevant memories found.</p>';
+            }
+        } catch (err) {
+            console.error(err);
+            resultsList.innerHTML = '<p class="text-center text-error">Error performing search.</p>';
+        } finally {
+            searchBtn.disabled = false;
+            loadingIndicator.classList.add('hidden');
+        }
+    };
+
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+</script>
+{% endblock %}

@@ -1,42 +1,200 @@
 {% extends "base.html" %}
-{% block title %}Home{% endblock %}
+
 {% block content %}
-<section class="space-y-10">
+<div class="mb-12 text-center">
+    <h1 class="text-5xl md:text-7xl font-display font-bold text-primary mb-4 leading-tight tracking-tight">Curate Your <br/><span class="italic text-base-content">Information Diet</span></h1>
+    <p class="text-lg text-neutral-content max-w-2xl mx-auto font-light">Input an RSS feed to fetch the latest stories. Summarize and save the most crucial pieces to your executive briefing.</p>
+</div>
 
-  <!-- Hero: confident heading, real copy, one primary action -->
-  <div class="space-y-4">
-    <span class="badge badge-primary badge-outline">New</span>
-    <h1 class="text-4xl md:text-5xl font-semibold leading-tight max-w-3xl">
-      A clear, confident headline that says what this does
-    </h1>
-    <p class="text-lg text-base-content/70 max-w-2xl">
-      One calm sentence explaining what the app does and who it is for.
-      Real copy, never placeholder text.
-    </p>
-    <div class="flex gap-3 pt-2">
-      <a href="#" class="btn btn-primary">Primary action</a>
-      <a href="#" class="btn btn-ghost">Secondary</a>
+<div class="card bg-base-200 shadow-xl shadow-black/50 border border-neutral/20 max-w-3xl mx-auto mb-16">
+    <div class="card-body p-6 md:p-8">
+        <form id="fetchForm" class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="form-control w-full">
+                <label class="label">
+                    <span class="label-text font-semibold uppercase tracking-wider text-xs text-neutral-content">RSS Feed URL</span>
+                </label>
+                <input type="url" id="rssUrl" placeholder="http://rss.cnn.com/rss/cnn_topstories.rss" class="input input-bordered input-primary w-full bg-base-100/50" required />
+            </div>
+            <button type="submit" class="btn btn-primary min-w-[120px] font-bold tracking-widest" id="fetchBtn">
+                Fetch Feed
+            </button>
+        </form>
     </div>
-  </div>
+</div>
 
-  <!-- Asymmetric layout instead of three identical cards -->
-  <div class="grid gap-4 md:grid-cols-12">
-    <div class="card bg-base-100 shadow-sm md:col-span-7">
-      <div class="card-body">
-        <h3 class="card-title">The main thing</h3>
-        <p class="text-base-content/70">
-          Give the most important feature room to breathe. One bigger card
-          earns more attention than three equal ones.
-        </p>
-      </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm md:col-span-5">
-      <div class="card-body">
-        <h3 class="card-title">A supporting thing</h3>
-        <p class="text-base-content/70">Smaller, secondary, still tidy.</p>
-      </div>
-    </div>
-  </div>
+<div id="loadingIndicator" class="hidden text-center py-12">
+    <span class="loading loading-ring loading-lg text-primary"></span>
+    <p class="mt-4 text-neutral-content font-display italic tracking-widest text-sm uppercase">Gathering Intelligence...</p>
+</div>
 
-</section>
+<div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-8 opacity-0 transition-opacity duration-700">
+    <!-- Items will be injected here -->
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const fetchForm = document.getElementById('fetchForm');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+
+    fetchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const url = document.getElementById('rssUrl').value;
+        
+        // UI Loading state
+        fetchBtn.disabled = true;
+        fetchBtn.innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
+        resultsGrid.style.opacity = '0';
+        resultsGrid.innerHTML = '';
+        loadingIndicator.classList.remove('hidden');
+
+        try {
+            const res = await fetch('/fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await res.json();
+            
+            if (data.items && data.items.length > 0) {
+                renderItems(data.items);
+            } else {
+                resultsGrid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-xl font-display text-error">No stories found. The feed might be empty or blocking automated requests.</p></div>';
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error fetching RSS');
+        } finally {
+            fetchBtn.disabled = false;
+            fetchBtn.innerHTML = 'Fetch Feed';
+            loadingIndicator.classList.add('hidden');
+            resultsGrid.style.opacity = '1';
+        }
+    });
+
+    function renderItems(items) {
+        items.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = "card bg-base-100 border border-neutral/30 shadow-lg hover:shadow-primary/10 transition-shadow duration-300 overflow-hidden group";
+            
+            // Add a subtle top border accent
+            const accent = document.createElement('div');
+            accent.className = "h-1 w-full bg-primary/40 group-hover:bg-primary transition-colors duration-300";
+            card.appendChild(accent);
+
+            const body = document.createElement('div');
+            body.className = "card-body p-6";
+
+            // Title
+            const title = document.createElement('h2');
+            title.className = "card-title font-display text-xl leading-snug mb-2 group-hover:text-primary transition-colors";
+            title.textContent = item.title;
+            
+            // Summary snippet
+            const snippet = document.createElement('p');
+            snippet.className = "text-sm text-neutral-content/80 line-clamp-3 mb-6";
+            snippet.innerHTML = item.summary;
+
+            // Summary Container (hidden initially)
+            const aiSummaryDiv = document.createElement('div');
+            aiSummaryDiv.className = "hidden mt-4 p-4 bg-base-200/50 rounded-box border border-neutral/20 text-sm italic font-serif leading-relaxed";
+            
+            // Actions
+            const actions = document.createElement('div');
+            actions.className = "card-actions justify-between items-center mt-auto pt-4 border-t border-neutral/20";
+            
+            const readMore = document.createElement('a');
+            readMore.href = item.link;
+            readMore.target = "_blank";
+            readMore.className = "text-xs font-bold uppercase tracking-widest text-primary/70 hover:text-primary";
+            readMore.textContent = "Source ↗";
+
+            const btnGroup = document.createElement('div');
+            btnGroup.className = "flex gap-2";
+
+            const sumBtn = document.createElement('button');
+            sumBtn.className = "btn btn-outline btn-primary btn-sm rounded-btn text-xs uppercase tracking-wider";
+            sumBtn.textContent = "Summarise";
+            sumBtn.onclick = () => handleSummarise(item, sumBtn, aiSummaryDiv);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = "btn btn-primary btn-sm rounded-btn text-xs uppercase tracking-wider";
+            saveBtn.textContent = "Save";
+            saveBtn.onclick = () => handleSave(item, aiSummaryDiv, saveBtn);
+
+            btnGroup.appendChild(sumBtn);
+            btnGroup.appendChild(saveBtn);
+            actions.appendChild(readMore);
+            actions.appendChild(btnGroup);
+
+            body.appendChild(title);
+            body.appendChild(snippet);
+            body.appendChild(aiSummaryDiv);
+            body.appendChild(actions);
+            card.appendChild(body);
+            resultsGrid.appendChild(card);
+        });
+    }
+
+    async function handleSummarise(item, btn, summaryDiv) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading loading-dots loading-xs"></span>';
+        
+        try {
+            const res = await fetch('/summarise', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+            });
+            const data = await res.json();
+            
+            if (data.summary) {
+                summaryDiv.innerHTML = data.summary;
+                summaryDiv.classList.remove('hidden');
+                btn.textContent = "Done";
+                btn.classList.add('btn-disabled');
+            }
+        } catch (err) {
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = "Retry";
+        }
+    }
+
+    async function handleSave(item, summaryDiv, btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading loading-dots loading-xs"></span>';
+        
+        // Use AI summary if generated, else use original snippet
+        const textToSave = summaryDiv.classList.contains('hidden') ? item.summary : summaryDiv.innerText;
+        
+        try {
+            const res = await fetch('/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headline: item.title, summary: textToSave })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'saved') {
+                btn.className = "btn btn-success btn-sm rounded-btn text-xs uppercase tracking-wider text-success-content";
+                btn.textContent = "Saved ✓";
+                
+                if (data.follow_up) {
+                    const badge = document.createElement('div');
+                    badge.className = "badge badge-accent badge-sm uppercase tracking-widest font-bold mt-2";
+                    badge.textContent = "Follow-Up Detected";
+                    summaryDiv.parentNode.insertBefore(badge, summaryDiv);
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = "Retry Save";
+        }
+    }
+</script>
 {% endblock %}

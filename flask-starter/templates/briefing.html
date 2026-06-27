@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <header class="border-b-4 border-primary pb-8 mb-12 text-center relative">
+        <h1 class="text-6xl md:text-8xl font-display font-black text-transparent bg-clip-text bg-gradient-to-br from-primary to-accent mb-6">The Brief</h1>
+        <p class="font-display italic text-2xl text-neutral-content/80 tracking-wide" id="dateStr"></p>
+        <div class="absolute top-0 right-0 opacity-10">
+            <svg class="w-32 h-32 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+    </header>
+
+    <div class="text-center mb-16">
+        <button id="generateBtn" class="btn btn-primary btn-wide btn-lg font-display uppercase tracking-[0.2em]">Generate Today's Briefing</button>
+    </div>
+
+    <div id="loadingIndicator" class="hidden flex flex-col items-center justify-center py-24 space-y-6">
+        <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p class="font-display italic text-xl text-primary animate-pulse">Compiling Executive Intelligence...</p>
+    </div>
+
+    <article id="briefingContent" class="hidden prose prose-lg prose-invert max-w-none prose-headings:font-display prose-headings:text-primary prose-p:font-body prose-p:leading-relaxed prose-a:text-accent mb-20"></article>
+
+    <div id="pastBriefingsSection" class="mt-24 border-t border-neutral/30 pt-16">
+        <h2 class="text-3xl font-display font-bold text-neutral-content/60 mb-8 text-center uppercase tracking-widest">Archive</h2>
+        <div id="pastBriefingsList" class="space-y-12">
+            <!-- Past briefings injected here -->
+        </div>
+        <div id="noPastBriefings" class="hidden text-center text-neutral-content/40 italic">
+            No past briefings found in the archive.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Set today's date
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('dateStr').textContent = new Date().toLocaleDateString('en-GB', options);
+
+    const generateBtn = document.getElementById('generateBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const briefingContent = document.getElementById('briefingContent');
+
+    generateBtn.addEventListener('click', async () => {
+        generateBtn.classList.add('hidden');
+        loadingIndicator.classList.remove('hidden');
+        briefingContent.classList.add('hidden');
+
+        try {
+            const res = await fetch('/brief');
+            const data = await res.json();
+            
+            if (data.briefing) {
+                // Basic formatting: treat double newlines as paragraphs, bold lines as subheadings
+                let html = data.briefing;
+                // If the backend returns markdown, we can do a simple parse
+                // Convert Markdown **bold** to HTML <strong>
+                html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // Convert \n\n to </p><p>
+                html = '<p class="first-letter:text-7xl first-letter:font-display first-letter:font-bold first-letter:text-primary first-letter:float-left first-letter:mr-4 first-letter:mt-2">' 
+                        + html.replace(/\n\n/g, '</p><p class="mt-6">') 
+                        + '</p>';
+                // Convert remaining \n to <br/>
+                html = html.replace(/\n/g, '<br/>');
+
+                briefingContent.innerHTML = html;
+                briefingContent.classList.remove('hidden');
+            } else {
+                alert('Failed to generate briefing.');
+                generateBtn.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error fetching briefing.');
+            generateBtn.classList.remove('hidden');
+        } finally {
+            loadingIndicator.classList.add('hidden');
+            loadPastBriefings();
+        }
+    });
+
+    async function loadPastBriefings() {
+        try {
+            const res = await fetch('/past_briefings');
+            const data = await res.json();
+            const list = document.getElementById('pastBriefingsList');
+            const emptyMsg = document.getElementById('noPastBriefings');
+            
+            list.innerHTML = '';
+            if (data.briefings && data.briefings.length > 0) {
+                emptyMsg.classList.add('hidden');
+                data.briefings.forEach((brief, idx) => {
+                    let html = brief;
+                    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    html = '<p class="text-sm text-neutral-content/80">' + html.replace(/\\n\\n/g, '</p><p class="mt-4 text-sm text-neutral-content/80">') + '</p>';
+                    html = html.replace(/\\n/g, '<br/>');
+
+                    const el = document.createElement('div');
+                    el.className = "p-8 rounded-box bg-base-200/20 border border-neutral/10 hover:border-primary/20 transition-colors";
+                    el.innerHTML = `
+                        <div class="mb-4 flex items-center justify-between">
+                            <span class="badge badge-outline badge-primary text-xs uppercase tracking-widest">Archived Briefing</span>
+                        </div>
+                        <div class="prose prose-invert max-w-none">${html}</div>
+                    `;
+                    list.appendChild(el);
+                });
+            } else {
+                emptyMsg.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error('Error loading past briefings:', err);
+        }
+    }
+
+    // Load past briefings on page load
+    loadPastBriefings();
+</script>
+{% endblock %}

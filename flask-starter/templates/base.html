@@ -1,43 +1,72 @@
-<!doctype html>
-<html lang="en" data-theme="nord">
+<!DOCTYPE html>
+<html lang="en" data-theme="luxury">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}My App{% endblock %}</title>
-
-  <!-- Prototype CDNs: fine for Replit. For production, move Tailwind + DaisyUI to a build step. -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
-
-  <!-- Two fonts only: one display (Fraunces), one body (Hanken Grotesk). Not Inter. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
-
-  <style>
-    body { font-family: 'Hanken Grotesk', sans-serif; }
-    h1, h2, h3 { font-family: 'Fraunces', serif; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Briefing</title>
+    <!-- Tailwind and DaisyUI -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.7.3/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --font-display: 'Playfair Display', serif;
+            --font-body: 'Outfit', sans-serif;
+        }
+        body {
+            font-family: var(--font-body);
+            background-color: #0f0f11;
+            color: #d1d1d1;
+        }
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: var(--font-display);
+        }
+        /* Subtle noise texture overlay for editorial depth */
+        .bg-noise {
+            position: relative;
+        }
+        .bg-noise::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-base-200">
-  <header class="navbar bg-base-100 shadow-sm px-4">
-    <div class="flex-1">
-      <a href="/" class="text-xl font-semibold">My App</a>
+<body class="bg-noise min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <div class="navbar bg-base-100 border-b border-neutral/50 sticky top-0 z-40 backdrop-blur-md bg-opacity-80">
+        <div class="flex-1 px-2 lg:flex-none">
+            <a href="/" class="text-xl font-display font-bold tracking-wider text-primary">VIBE <span class="text-neutral-content font-light italic">Briefing</span></a>
+        </div> 
+        <div class="flex flex-1 justify-end px-2">
+            <div class="flex items-stretch gap-4">
+                <a href="/" class="btn btn-ghost btn-sm rounded-btn uppercase tracking-widest text-xs font-semibold">Dashboard</a>
+                <a href="/briefing" class="btn btn-primary btn-sm rounded-btn uppercase tracking-widest text-xs font-bold shadow-md shadow-primary/20">The Brief</a>
+                <a href="/search_view" class="btn btn-ghost btn-sm rounded-btn uppercase tracking-widest text-xs font-semibold">Search</a>
+            </div>
+        </div>
     </div>
-    <nav class="flex-none">
-      <ul class="menu menu-horizontal gap-1">
-        <li><a href="/">Home</a></li>
-        <li><a href="/about">About</a></li>
-      </ul>
-    </nav>
-  </header>
 
-  <main class="mx-auto max-w-5xl px-4 py-10">
-    {% block content %}{% endblock %}
-  </main>
+    <!-- Main Content Container -->
+    <main class="flex-grow w-full max-w-5xl mx-auto px-4 py-12 lg:py-16 relative z-10">
+        {% block content %}{% endblock %}
+    </main>
 
-  <footer class="footer footer-center p-6 text-base-content/60">
-    <aside><p>Built with Flask, Tailwind and DaisyUI.</p></aside>
-  </footer>
+    <footer class="footer footer-center p-10 bg-base-200 text-base-content rounded mt-auto border-t border-neutral/30">
+        <aside>
+            <p class="font-display italic opacity-70">Curated by your AI Executive Assistant</p>
+        </aside>
+    </footer>
+
+    <!-- Global Javascript for common interactions -->
+    {% block scripts %}{% endblock %}
 </body>
 </html>
