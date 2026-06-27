@@ -1,123 +1,65 @@
-# Vibe-briefing skills
+# News Brief: AI Daily Briefing
 
 > **Contributor Note:** This project was initially built as a master class template by Casius Lee. I (Khuzaima Hassan) cloned the base project and significantly expanded it. My core contributions include completely overhauling the deployment infrastructure, building a secure base64 secret injection pipeline for cloud hosting, resolving Python dependency conflicts, debugging UI regressions, and successfully deploying the backend with Oracle Autonomous Database via OCI integration on Render.
 
-The take-home kit for the live build: an AI daily briefing that reads your feeds,
-writes a what-happened and why-it-matters on each story, and remembers everything
-in Oracle so you can ask it later.
+An AI-powered daily briefing app that reads your favourite RSS feeds, writes a "what-happened" and "why-it-matters" on each story, and remembers everything in an Oracle database so you can query it later.
 
-Three things in here:
-
-1. **Skills** the Agent loads while you build (`skills/`).
-2. **A Flask starter** so you are not staring at a blank page (`flask-starter/`).
-3. **The session slides**, if you want to follow the structure later (`deck/`).
+This is not a generic news aggregator. It is a highly personalised briefing written in a specific procedural style (e.g., tailored for a Developer Advocate, complete with analogies and actionable angles), powered entirely by **Oracle Autonomous Database** and **OCI Generative AI**.
 
 ---
 
-## Before you start: an Oracle database (free)
+## 🏗️ Architecture & Tech Stack
 
-The backend skill wires the app to an **Oracle Autonomous Database** and to
-**OCI Generative AI**: Select AI writes the summaries inside the database, and
-Oracle AI Agent Memory stores and searches everything. Every AI call stays
-inside Oracle, so there are no third-party AI keys to manage.
+This project is built to ensure all AI operations remain securely within the database layer—no third-party AI keys are ever exposed to the frontend.
 
-You do not need an existing Oracle account. Sign up for the **OCI Free Trial**
-and you get **US$300 in cloud credits for 30 days**, which is plenty to set all
-of this up and run it through the session:
-
-1. Create a free account at [oracle.com/cloud/free](https://www.oracle.com/cloud/free/).
-   You get the $300 trial credits, and an Always Free tier afterwards.
-2. Provision an **Autonomous Database** (choose Oracle AI Database 26ai). Select
-   AI and AI Vector Search are built in.
-3. Check that **OCI Generative AI** is available in your region (the skill uses
-   Cohere models through OCI GenAI). GenAI usage draws from your trial credits.
-4. Download the database **wallet** and set your connection details. The
-   `vibe-briefing-backend` skill has the exact wiring and the five-route
-   contract.
-
-Running the database in the Autonomous Database Free container image is possible,
-but the AI still calls OCI GenAI, so you would need an OCI account anyway and
-would have to swap the wallet connection for a local one. The free trial is the
-simpler route.
+* **Backend:** Python, Flask, Gunicorn
+* **Database:** Oracle Autonomous Database (Always Free Tier)
+* **AI & Memory:** Oracle AI Agent Memory (`oracleagentmemory`), OCI Generative AI (Cohere Command-R)
+* **Frontend:** HTML, TailwindCSS, DaisyUI (No heavy frontend frameworks)
+* **Deployment:** Dockerized for Render.com free tier with a custom secure-secret injection pipeline.
 
 ---
 
-## 1. Add the skills (Replit, Settings, Personalization)
+## ✨ Key Features
 
-A skill is a short instruction file that teaches the Replit Agent how to do one
-thing well. You add them once, then the Agent pulls in the right one when it is
-relevant, or you call one by name.
-
-1. In Replit, open **Settings**, then **Personalization**.
-2. Add the skills **one by one**: for each folder under `skills/` in this repo,
-   add its `SKILL.md` as a new skill. Six in total.
-3. That is it. Replit reads each skill's name and description, and loads the full
-   instructions only when they fit what you are doing. You can also call one
-   directly by typing its name in the Agent chat, for example `/brainstorming`.
-
-The six skills, and what each one is for:
-
-| Skill | What it does |
-|---|---|
-| `brainstorming` | Design before code. The Agent interviews you, one question at a time, instead of generating in the wrong direction. |
-| `writing-plans` | Turns the design into a small, checkable build plan. |
-| `executing-plans` | Builds the plan one task at a time, verifying each before moving on. |
-| `vibe-briefing-backend` | The locked Oracle and Agent Memory backend contract, so voice-driven changes cannot break the data layer. |
-| `flask-ui-design` | The Tailwind and DaisyUI look-and-feel rules for this app. |
-| `frontend-design` | The taste layer that keeps the UI from looking like generic AI slop. |
-
-These are the Replit-clean versions. The Claude Code machinery (git worktrees,
-subagents, wikilinks) has been stripped out, so they just work in a single agent.
-
-If you are forking `vibe-briefing-backend` for your own database, swap the
-project specifics (the Select AI profile, the model names, the wallet and DSN)
-for your own Oracle AI Database values. The contract stays the same.
+1. **Episodic & Semantic Memory:** Powered by Oracle AI Agent Memory, the app connects related stories across different days, highlighting follow-ups automatically.
+2. **In-Database AI Generation:** Uses `DBMS_CLOUD_AI` (Select AI) to generate summaries securely within the database boundary.
+3. **Automated Base64 Secret Pipeline:** Since free cloud tiers (like Render) do not support direct file uploads, the deployment infrastructure automatically decodes and extracts the Oracle mTLS `.zip` Wallet and OCI `.pem` private keys from Base64 environment variables in memory at boot time (`render_setup.py`).
+4. **Procedural Vibe Checking:** The AI is seeded with a specific voice ("Procedural Memory") to ensure the daily digest is written exactly how the user prefers.
 
 ---
 
-## 2. Flask starter (templates)
+## 🛣️ API Routes
 
-Drag the two files from `flask-starter/templates/` into your project's
-`templates/` folder:
+The backend operates via a lightweight Flask contract:
 
-- `base.html`: the shared layout (nav, container, fonts, DaisyUI theme).
-- `index.html`: an example page that extends `base.html`.
-
-Then point a Flask route at it:
-
-```python
-from flask import Flask, render_template
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-```
-
-The CDNs in `base.html` are fine for prototyping in Replit. For production, move
-Tailwind and DaisyUI to a proper build step.
+* `POST /fetch` — Parses an RSS URL and returns the 20 newest items (No DB interaction).
+* `POST /summarise` — Runs in-DB Select AI to generate a 2-sentence "What Happened / Why it matters" summary.
+* `POST /save` — Embeds and stores the story in Oracle. Uses vector search to detect if the story is a follow-up to a past event.
+* `GET /brief` — Gathers today's stories, pulls semantic trends, and runs a synthesis generation to produce the final daily briefing.
+* `POST /search` — Allows semantic search against all past stored stories.
 
 ---
 
-## 3. The session slides
+## 🚀 Deployment (Render)
 
-`deck/index.html` is the companion deck from the session: what we are building,
-the opening prompt, Oracle Agent Memory, and the brainstorm, plan, execute,
-harden spine. Open it in a browser (clone the repo, then open the file) to walk
-back through the structure on your own.
+This repository is pre-configured for instant deployment on Docker-based cloud platforms like Render.
 
-## Starter Prompt
-I want a personal AI daily briefing app, not a generic news summary, but a
-briefing written for my role: an AI Developer Advocate at Oracle.
+1. Ensure the **Root Directory** in Render is set to `flask-starter`.
+2. Generate a bulk `.env` payload using the local script to encode your Oracle Wallet `.zip` and OCI `.pem` file into secure Base64 strings.
+3. Paste the variables into Render's Environment Variables tab using the "Add from .env" feature.
+4. The custom `render_setup.py` boot script will unpack the credentials securely during the Docker container startup sequence.
 
-- I add RSS feeds for the sources I care about.
-- Each day it fetches them, summarises every story, and stores the summaries
-  so I can query them later.
-- On demand it writes a digest: a top-line narrative, a daily theme, and the
-  five most significant stories.
-- Each story: What happened, Why it matters, Your angle (my content, talk,
-  and demo opportunities).
-- Briefings are saved, so I can read past days.
+---
 
-Help me design and build this. Let's talk it through first, not code:
-stack, storage and retrieval, writing "Your angle", MVP first.
+## 📚 Masterclass Origins
+
+*The original starter kit included the following design prompt used to seed the initial AI development:*
+
+> **Starter Prompt:**
+> I want a personal AI daily briefing app, not a generic news summary, but a briefing written for my role: an AI Developer Advocate at Oracle.
+> - I add RSS feeds for the sources I care about.
+> - Each day it fetches them, summarises every story, and stores the summaries so I can query them later.
+> - On demand it writes a digest: a top-line narrative, a daily theme, and the five most significant stories.
+> - Each story: What happened, Why it matters, Your angle (my content, talk, and demo opportunities).
+> - Briefings are saved, so I can read past days.
