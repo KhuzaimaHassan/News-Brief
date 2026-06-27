@@ -1,5 +1,7 @@
 # Vibe-briefing skills
 
+> **Contributor Note:** This project was initially built as a master class template by Casius Lee. I (Khuzaima Hassan) cloned the base project and significantly expanded it. My core contributions include completely overhauling the deployment infrastructure, building a secure base64 secret injection pipeline for cloud hosting, resolving Python dependency conflicts, debugging UI regressions, and successfully deploying the backend with Oracle Autonomous Database via OCI integration on Render.
+
 The take-home kit for the live build: an AI daily briefing that reads your feeds,
 writes a what-happened and why-it-matters on each story, and remembers everything
 in Oracle so you can ask it later.
