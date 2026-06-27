@@ -24,5 +24,12 @@ if __name__ == "__main__":
     # Decode the Oracle Wallet zip
     decode_secret('WALLET_BASE64', 'Wallet_newsbrief.zip')
     
+    # Extract the zip file so oracledb can read the config_dir
+    import zipfile
+    if os.path.exists('Wallet_newsbrief.zip'):
+        with zipfile.ZipFile('Wallet_newsbrief.zip', 'r') as zip_ref:
+            zip_ref.extractall('wallet')
+        print("Extracted wallet to ./wallet directory")
+    
     # Decode the OCI Private Key PEM
     decode_secret('OCI_KEY_BASE64', 'khuzaima.pem')
