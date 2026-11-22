@@ -5,3 +5,7 @@ node_modules/
 wallet/
 __pycache__/
 encode_secrets.py
+deploy_fly.py
+fly.toml
+generate_render_env.py
+render_bulk.env
