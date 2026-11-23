@@ -20,13 +20,7 @@
 
 > [!NOTE]
 > ### 👤 Contributor Note & Engineering Scope
-> This project originated from an AI engineering masterclass template by **Casius Lee**. 
-> As part of extending and productionizing the application, **Khuzaima Hassan** architected and implemented:
-> - **Production Deployment Architecture:** Dockerized the full stack for stateless, zero-cost cloud hosting on Render.
-> - **Zero-Exposure Secret Injection Pipeline:** Built an automated memory-decoding pipeline (`render_setup.py`) allowing secure mTLS Oracle Wallet `.zip` extraction and OCI `.pem` credential resolution in cloud environments without committing secrets to Git.
-> - **Dynamic Environment Interceptor:** Designed adaptive path routing in `db.py` to seamlessly operate across both local Windows workstations and Linux cloud containers.
-> - **Dependency & Build Resolution:** Solved cross-package PyPI constraints between `oracleagentmemory`, `oracledb`, and `litellm`.
-> - **UI & Prompt Engineering:** Hardened executive typography (Playfair Display / Outfit), eliminated conversational LLM preambles, and fine-tuned structured markdown templates.
+> This project began from an AI engineering masterclass template by **Casius Lee**. The repository includes a Flask application, Oracle database and AI integration, container configuration, and a Render credential-bootstrap script. The project does not include deployment-run evidence that establishes production readiness, zero cost, or comprehensive security review.
 
 ---
 
@@ -34,10 +28,10 @@
 
 Traditional news aggregators overwhelm you with raw headlines, while generic AI summarizers output detached bullet points. **News Brief** operates as an intelligent memory agent:
 
-1. **100% In-Database AI & Vector Storage:** Summaries and digests run *inside* Oracle using `DBMS_CLOUD_AI` (Select AI) and `OracleAgentMemory`. No third-party AI keys (OpenAI/Anthropic) are used or exposed.
+1. **Oracle-backed generation and memory:** Article summaries and daily briefings call Oracle `DBMS_CLOUD_AI.GENERATE`; story memory and embedding use `OracleAgentMemory` configured with OCI GenAI clients. This is an Oracle-integrated flow, not a guarantee that all model computation runs inside the database process.
 2. **Four-Tier Cognitive Memory:** Automatically links developing stories across days using vector similarity to surface true follow-ups rather than duplicate noise.
 3. **Executive Editorial Voice:** Governed by **Procedural Memory** to enforce concise framing: *What Happened*, *Why It Matters*, an *Analogy*, and strategic *Opportunities*.
-4. **Stateless Cloud Security:** Employs an automated Base64 bootstrap pipeline so you can deploy to free PaaS tiers without purchasing expensive persistent volume mounts for mTLS keys.
+4. **Cloud credential bootstrap:** The Docker startup script decodes Base64 environment variables into wallet and PEM files before Gunicorn starts. Base64 is encoding, not encryption; the credentials are written to the container filesystem during startup.
 
 ---
 
@@ -133,31 +127,26 @@ The application provides an editorial experience inspired by luxury print journa
 
 ---
 
-## 🔐 Zero-Exposure Cloud Deployment (Render)
+## 🔐 Render deployment and credential handling
 
 Deploying applications that require **Oracle mTLS Wallets** (`cwallet.sso`, `tnsnames.ora`) and **OCI Private API Keys** (`.pem`) to cloud platforms often leads to accidental credential leaks in Git or requires expensive volume storage.
 
-News Brief solves this with an **automated in-memory bootstrap pipeline**:
+The Docker image runs `render_setup.py` before Gunicorn. The script decodes `WALLET_BASE64` to `Wallet_newsbrief.zip`, extracts its contents into `./wallet`, and decodes `OCI_KEY_BASE64` to `khuzaima.pem`. These are ordinary files in the container filesystem, not in-memory-only credentials. Base64 does not encrypt or protect a secret. Keep the environment variables restricted to the service, never print their values, and avoid committing source wallet/key files or generated files. Understand the hosting provider's filesystem and redeploy lifecycle before relying on these files.
 
-1. **Local Secret Packaging:** Run the PowerShell / Python encoder locally to generate Base64 strings of your `.zip` wallet and `.pem` key.
-2. **Render Environment Configuration:** Paste the variables into Render using the **"Add from .env"** bulk tool.
-3. **Pre-Boot Extraction (`render_setup.py`):**
-   ```python
-   # Automatically executes inside Docker before Gunicorn starts
-   decode_secret('WALLET_BASE64', 'Wallet_newsbrief.zip')
-   extract_to_directory('wallet')
-   decode_secret('OCI_KEY_BASE64', 'khuzaima.pem')
-   ```
-4. **Adaptive Connection Routing (`db.py`):** The application detects if it is running in the cloud container and automatically maps the connection pool to the ephemeral `./wallet` directory and `./khuzaima.pem` key.
+Configure these Render environment variables from protected values: `DB_USER`, `DB_PASSWORD`, `DB_DSN`, `OCI_USER`, `OCI_TENANCY`, `OCI_FINGERPRINT`, `OCI_COMPARTMENT_ID`, `OCI_REGION`, `WALLET_BASE64`, and `OCI_KEY_BASE64`. Set `OCI_KEY_FILE` only for local use when no decoded `khuzaima.pem` is present. The application and bootstrap script expect `WALLET_LOCATION` (default `./wallet`); the checked-in `.env.example` currently says `WALLET_DIR`, so use `WALLET_LOCATION` in local configuration or align that example separately. The database code uses the wallet password from `DB_PASSWORD`.
+
+The repository does not contain a Render Blueprint or a committed credential encoder, so configure the service's Docker root directory and build/start behavior in the Render dashboard, and use a trusted local tool to prepare encoded file contents. Do not paste secrets into issues, commits, or chat.
 
 ---
 
 ## 🚀 Quickstart & Local Setup
 
 ### 1. Prerequisites
-- Python 3.11+
-- An Oracle Cloud Infrastructure (OCI) Account ([Always Free Tier](https://www.oracle.com/cloud/free/))
-- Provisioned Oracle Autonomous Database 26ai with `DBMS_CLOUD_AI` configured
+- Python 3.12 (the Dockerfile base image)
+- An OCI account and an Oracle Autonomous Database with wallet access
+- A database user, DSN, and wallet password
+- OCI API signing-key configuration for the memory client
+- A Select AI profile named `VIBE_GENAI`; `setup_db.py` contains the SQL and profile setup routine
 
 ### 2. Clone Repository
 ```bash
@@ -166,10 +155,11 @@ cd News-Brief/flask-starter
 ```
 
 ### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and fill in your credentials:
+Copy the example and provide the database and OCI values:
 ```bash
 cp .env.example .env
 ```
+The app reads `WALLET_LOCATION`, while the current example names this setting `WALLET_DIR`; change the local variable name to `WALLET_LOCATION=./wallet`. Place the extracted Oracle wallet in that directory and set `OCI_KEY_FILE` to a local PEM path. Keep `.env`, wallet files, and private keys out of version control.
 ```ini
 DB_USER=admin
 DB_PASSWORD=your_db_password
@@ -189,8 +179,11 @@ OCI_REGION=us-chicago-1
 pip install -r requirements.txt
 ```
 
-### 5. Seed Memory & Launch
+### 5. Configure Oracle, seed memory, and launch
 ```bash
+# Create/configure the Select AI profile and database credential
+python setup_db.py
+
 # Seed procedural style and sources into Oracle Agent Memory
 python seed_style.py
 python seed_all.py
@@ -198,7 +191,7 @@ python seed_all.py
 # Launch development server
 python app.py
 ```
-Visit `http://localhost:5000` in your browser.
+Visit `http://localhost:5000` in your browser. These commands require a working database, wallet, OCI signing key, and Select AI profile; the app does not provide a local mock mode.
 
 ---
 
